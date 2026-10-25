@@ -1,0 +1,7 @@
+# 忽略模型权重
+*.pt
+# 忽略环境变量密钥
+.env
+# 忽略临时脚本
+temp_script.py
+__pycache__/
