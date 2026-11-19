@@ -1,19 +1,20 @@
-"""
-Text generation script.
-Supports temperature, top-k, top-p, and comparing with HuggingFace GPT-2.
-"""
 import argparse
 import torch
 import tiktoken
-
 from model import GPT, GPTConfig
-
+import json
+import os
 
 def load_model_from_ckpt(ckpt_path, device):
     ckpt = torch.load(ckpt_path, map_location=device)
     model_cfg = GPTConfig(**ckpt["config"]["model"])
     model = GPT(model_cfg)
-    model.load_state_dict(ckpt["model"])
+
+    state_dict = ckpt["model"]
+    if any(k.startswith("module.") for k in state_dict):
+        state_dict = {k.replace("module.", "", 1): v for k, v in state_dict.items()}
+    model.load_state_dict(state_dict)
+
     model.to(device)
     model.eval()
     return model, ckpt.get("step", None)
@@ -48,15 +49,20 @@ def generate_text(model, enc, prompt, device,
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--ckpt", type=str, default=None,
-                        help="path to checkpoint; if None, use HF GPT-2")
-    parser.add_argument("--prompt", type=str, default="Hello, I'm a language model,")
+    parser.add_argument(
+        "--ckpt",
+        type=str,
+        default=r"outputs/gpt2-medium/ckpt_final_1.pt",
+        help="path to checkpoint; if None, use HF GPT-2",
+    )
+    parser.add_argument("--prompt", type=str, default="Once upon a time,")
     parser.add_argument("--max_new_tokens", type=int, default=100)
     parser.add_argument("--temperature", type=float, default=1.0)
-    parser.add_argument("--top_k", type=int, default=50)
+    parser.add_argument("--top_k", type=int, default=None)
     parser.add_argument("--top_p", type=float, default=None)
     parser.add_argument("--num_samples", type=int, default=3)
     parser.add_argument("--seed", type=int, default=1337)
+    parser.add_argument("--save_path",type=str,default=None,help="保存生成文本的文件路径")
     args = parser.parse_args()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -64,6 +70,7 @@ def main():
     if args.ckpt is None:
         print("loading HuggingFace GPT-2 (for reference)...")
         model = GPT.from_pretrained("gpt2").to(device)
+        step = "HF"
     else:
         print(f"loading checkpoint: {args.ckpt}")
         model, step = load_model_from_ckpt(args.ckpt, device)
@@ -87,8 +94,26 @@ def main():
     )
 
     for i, text in enumerate(results):
-        print(f"\n--- sample {i+1} ---")
+        print(f"\n sample {i + 1}")
         print(text)
+    if args.save_path is not None:
+        os.makedirs(
+            os.path.dirname(args.save_path) or ".",
+            exist_ok=True
+        )
+        with open(args.save_path, "w", encoding="utf-8") as f:
+            for i, text in enumerate(results):
+                record = {
+                    "sample": i + 1,
+                    "prompt": args.prompt,
+                    "text": text,
+                    "temperature": args.temperature,
+                    "top_k": args.top_k,
+                    "top_p": args.top_p,
+                    "seed": args.seed
+                }
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        print(f"\n生成结果已保存到: {args.save_path}")
 
 
 if __name__ == "__main__":

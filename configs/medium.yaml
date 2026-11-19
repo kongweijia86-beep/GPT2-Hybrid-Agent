@@ -1,3 +1,4 @@
+
 model:
   block_size: 256
   vocab_size: 50257
@@ -10,18 +11,24 @@ training:
   batch_size: 16
   block_size: 256
   total_batch_size: 16384
+
   max_lr: 0.0001
   min_lr: 0.00001
-  warmup_steps: 200
-  max_steps: 5000
+
+  warmup_steps: 500
+  max_steps: 10000
+
   weight_decay: 0.1
   grad_clip: 1.0
-  eval_interval: 200
-  eval_steps: 50
+
+  eval_interval: 250
+  eval_steps: 100
+
   save_interval: 500
   log_interval: 10
+
   seed: 1337
 
 output:
   dir: "/kaggle/working/outputs"
-  run_name: "gpt2-small-6l384"
+  run_name: "gpt2-tinystories-6l384-v2"
